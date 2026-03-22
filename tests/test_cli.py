@@ -6,7 +6,6 @@ import pytest
 
 from conductor.cli import parse_args
 
-
 BASE_ARGV = [
     "https://github.com/foo/bar",
     "--template",

@@ -92,7 +92,11 @@ class TestAgentState:
         tc = TestCase(name="t", file_path="f")
         usage = TokenUsage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
         result = AgentResult(
-            test=tc, is_tautology=False, reason="ok", status=AgentStatus.DONE, usage=usage
+            test=tc,
+            is_tautology=False,
+            reason="ok",
+            status=AgentStatus.DONE,
+            usage=usage,
         )
         state = AgentState(test=tc)
         state.status = AgentStatus.RUNNING
