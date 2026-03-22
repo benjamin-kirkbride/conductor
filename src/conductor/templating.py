@@ -1,11 +1,15 @@
 """Jinja2 template loading and rendering for agent prompts."""
 
-import os
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import jinja2
 
-from conductor.models import TestCase
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from conductor.models import TestCase
 
 
 def load_template(path: Path) -> jinja2.Template:
@@ -69,13 +73,12 @@ def _walk_tree(directory: Path, prefix: str, lines: list[str]) -> None:
         prefix: Indentation prefix for the current level.
         lines: Accumulator for tree lines.
     """
-    entries = sorted(os.listdir(directory))
-    for entry in entries:
-        if entry == ".git":
+    entries = sorted(directory.iterdir(), key=lambda p: p.name)
+    for entry_path in entries:
+        if entry_path.name == ".git":
             continue
-        entry_path = directory / entry
         if entry_path.is_dir():
-            lines.append(f"{prefix}{entry}/")
+            lines.append(f"{prefix}{entry_path.name}/")
             _walk_tree(entry_path, prefix + "  ", lines)
         else:
-            lines.append(f"{prefix}{entry}")
+            lines.append(f"{prefix}{entry_path.name}")

@@ -1,9 +1,14 @@
 """CSV output for tautology detection results."""
 
-import csv
-from pathlib import Path
+from __future__ import annotations
 
-from conductor.models import AgentResult
+import csv
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from conductor.models import AgentResult
 
 
 def write_csv(results: list[AgentResult], output_path: Path) -> None:
