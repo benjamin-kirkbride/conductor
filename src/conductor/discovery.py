@@ -18,3 +18,19 @@ def consolidate_tests(raw_lines: list[str]) -> list[TestCase]:
         TestCase(name=nodeid, file_path=nodeid.split("::")[0])
         for nodeid in seen
     ]
+
+
+def discover_tests(repo_dir: Path) -> list[TestCase]:
+    """Run pytest --collect-only and return consolidated test cases."""
+    result = subprocess.run(
+        ["pytest", "--collect-only", "-q"],
+        cwd=repo_dir,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    raw_lines = [
+        line for line in result.stdout.splitlines()
+        if "::" in line and line.strip()
+    ]
+    return consolidate_tests(raw_lines)
