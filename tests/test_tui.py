@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 from conductor.models import (
@@ -13,9 +14,12 @@ from conductor.models import (
 )
 from conductor.tui import TuiTracker
 
+if TYPE_CHECKING:
+    import pytest
+
 
 def _make_test(name: str = "tests/test_foo.py::test_bar") -> TestCase:
-    return TestCase(name=name, file_path=name.split("::")[0])
+    return TestCase(name=name, file_path=name.split("::", maxsplit=1)[0])
 
 
 def _make_usage(
@@ -79,7 +83,9 @@ class TestTuiTrackerStateManagement:
         state2 = _make_state(status=AgentStatus.RUNNING)
         tracker.update(state1)
         tracker.update(state2)
-        assert tracker._states["tests/test_foo.py::test_bar"].status is AgentStatus.RUNNING
+        assert (
+            tracker._states["tests/test_foo.py::test_bar"].status is AgentStatus.RUNNING
+        )
 
     def test_update_multiple_agents(self) -> None:
         tracker = _make_tracker()
@@ -133,7 +139,9 @@ class TestTuiTrackerCumulativeUsage:
     def test_failed_agent_with_result_included(self) -> None:
         tracker = _make_tracker()
         test = _make_test("test_a")
-        result = _make_result(test, status=AgentStatus.FAILED, usage=_make_usage(50, 20, 0.002))
+        result = _make_result(
+            test, status=AgentStatus.FAILED, usage=_make_usage(50, 20, 0.002)
+        )
         tracker.update(_make_state("test_a", status=AgentStatus.FAILED, result=result))
         usage = tracker.cumulative_usage
         assert usage.input_tokens == 50
@@ -185,10 +193,9 @@ class TestTuiTrackerNonTty:
         tracker.start()
         assert tracker._live is None
 
-    def test_non_tty_update_prints_on_done(self, capsys: object) -> None:
-        import _pytest.capture
-
-        assert isinstance(capsys, _pytest.capture.CaptureFixture)
+    def test_non_tty_update_prints_on_done(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         tracker = _make_tracker(total=3)
         tracker.start()
         tracker.update(_make_state("test_a", status=AgentStatus.DONE))
@@ -196,10 +203,9 @@ class TestTuiTrackerNonTty:
         assert "test_a" in captured.out
         assert "DONE" in captured.out
 
-    def test_non_tty_update_prints_on_failed(self, capsys: object) -> None:
-        import _pytest.capture
-
-        assert isinstance(capsys, _pytest.capture.CaptureFixture)
+    def test_non_tty_update_prints_on_failed(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         tracker = _make_tracker(total=3)
         tracker.start()
         tracker.update(_make_state("test_a", status=AgentStatus.FAILED))
@@ -207,20 +213,18 @@ class TestTuiTrackerNonTty:
         assert "test_a" in captured.out
         assert "FAILED" in captured.out
 
-    def test_non_tty_update_silent_on_running(self, capsys: object) -> None:
-        import _pytest.capture
-
-        assert isinstance(capsys, _pytest.capture.CaptureFixture)
+    def test_non_tty_update_silent_on_running(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         tracker = _make_tracker(total=3)
         tracker.start()
         tracker.update(_make_state("test_a", status=AgentStatus.RUNNING))
         captured = capsys.readouterr()
         assert captured.out == ""
 
-    def test_non_tty_stop_prints_summary(self, capsys: object) -> None:
-        import _pytest.capture
-
-        assert isinstance(capsys, _pytest.capture.CaptureFixture)
+    def test_non_tty_stop_prints_summary(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         tracker = _make_tracker(total=2)
         tracker.start()
         test = _make_test("test_a")
@@ -254,10 +258,27 @@ class TestTuiTrackerLifecycle:
         tracker._live = mock_live
         tracker.stop()
         mock_live.stop.assert_called_once()
+        assert tracker._live is None
+
+    def test_update_refreshes_live_display(self) -> None:
+        with patch("conductor.tui.sys.stdout") as mock_stdout:
+            mock_stdout.isatty.return_value = True
+            tracker = TuiTracker(total=5)
+        mock_live = MagicMock()
+        tracker._live = mock_live
+        tracker.update(_make_state("test_a", status=AgentStatus.RUNNING))
+        mock_live.update.assert_called_once()
+        assert "test_a" in tracker._states
 
     def test_stop_without_start_is_safe(self) -> None:
         tracker = _make_tracker()
         tracker.stop()  # should not raise
+
+    def test_stop_without_start_tty_is_safe(self) -> None:
+        with patch("conductor.tui.sys.stdout") as mock_stdout:
+            mock_stdout.isatty.return_value = True
+            tracker = TuiTracker(total=5)
+        tracker.stop()  # _live is None, _is_tty is True: no-op
 
 
 class TestBuildDisplay:
