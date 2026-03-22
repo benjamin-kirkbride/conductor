@@ -174,9 +174,7 @@ class TestOrchestrateTuiNone:
 
 class TestOrchestrateEmptyTests:
     async def test_returns_empty_list(self):
-        results = await orchestrate(
-            [], Path("/repo"), _make_config(), _TEMPLATE, _TREE
-        )
+        results = await orchestrate([], Path("/repo"), _make_config(), _TEMPLATE, _TREE)
         assert results == []
 
 

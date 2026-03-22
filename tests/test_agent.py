@@ -107,9 +107,7 @@ class TestEvaluateTestNoResultMessage:
 class TestEvaluateTestIsError:
     async def test_raises_agent_error_with_message(self):
         test = _make_test()
-        result_msg = _make_result_message(
-            is_error=True, result="something went wrong"
-        )
+        result_msg = _make_result_message(is_error=True, result="something went wrong")
 
         with (
             patch(
@@ -229,9 +227,7 @@ class TestParseOutput:
         assert _parse_output(msg, test) == {"is_tautology": True, "reason": "yes"}
 
     def test_json_fallback(self):
-        msg = _make_result_message(
-            result='{"is_tautology": false, "reason": "no"}'
-        )
+        msg = _make_result_message(result='{"is_tautology": false, "reason": "no"}')
         test = _make_test()
         assert _parse_output(msg, test) == {"is_tautology": False, "reason": "no"}
 
