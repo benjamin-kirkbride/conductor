@@ -68,6 +68,7 @@ convention = "google"
 allow-multiline = false
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 addopts = "--cov=conductor --cov-report=term-missing -n auto --dist loadgroup"
 filterwarnings = [
     "ignore::pytest.PytestCollectionWarning",
