@@ -1,0 +1,103 @@
+[project]
+name = "conductor"
+version = "0.1.0"
+description = "AI agent orchestration via the Claude Agent SDK"
+requires-python = ">=3.14"
+dependencies = [
+    "claude-agent-sdk",
+]
+
+[project.scripts]
+conductor = "conductor.__main__:main"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+ignore = [
+    "DJ",       # flake8-django
+    "ANN",      # flake8-annotations - leave these to mypy
+    "PD",       # pandas-vet
+    "AIR",      # Airflow
+    "S101",     # Use of assert detected
+    "TD",       # flake8-todos
+    "FIX",      # flake8-fixme
+    "G004",     # logging-f-string
+    "T201",     # print found - print is intentional in CLI entry points
+    "ISC003",   # Explicitly concatenated string
+    # Rules that conflict with the ruff formatter (black-compatible)
+    "W191",     # tab-indentation
+    "E111",     # indentation-with-invalid-multiple
+    "E114",     # indentation-with-invalid-multiple-comment
+    "E117",     # over-indented
+    "D206",     # docstring-tab-indentation
+    "D300",     # triple-single-quotes
+    "Q000",     # bad-quotes-inline-string
+    "Q001",     # bad-quotes-multiline-string
+    "Q002",     # bad-quotes-docstring
+    "Q003",     # avoidable-escaped-quote
+    "Q004",     # unnecessary-escaped-quote
+    "COM812",   # missing-trailing-comma
+    "COM819",   # prohibited-trailing-comma
+    "ISC002",   # multi-line-implicit-string-concatenation
+    "E501",     # line-too-long
+]
+select = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "D",       # docstrings not required in tests
+    "SLF001",  # private member access is normal in tests
+    "ARG001",  # pytest fixtures are injected by name
+    "PLR2004", # magic values are fine in tests
+    "C901",    # fixtures legitimately have complex setup/teardown
+    "S603",    # subprocess calls in tests use trusted arguments
+    "S607",    # partial executable paths are fine in tests
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-implicit-str-concat]
+allow-multiline = false
+
+[tool.pytest.ini_options]
+addopts = "--cov=conductor --cov-report=term-missing -n auto --dist loadgroup"
+markers = [
+    "slow: tests with significant wall-clock time",
+]
+
+[tool.coverage.run]
+source = ["conductor"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/conductor"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.13",
+    "mypy>=1.19",
+    "pre-commit>=4.2",
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "pytest-xdist>=3.8",
+    "ruff>=0.15",
+    "pyright>=1.1",
+    "pytest-randomly>=3.16",
+]
