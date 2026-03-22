@@ -75,9 +75,6 @@ filterwarnings = [
 markers = [
     "slow: tests with significant wall-clock time",
 ]
-filterwarnings = [
-    "ignore::pytest.PytestCollectionWarning",
-]
 
 [tool.coverage.run]
 source = ["conductor"]
