@@ -30,7 +30,9 @@ def load_template(path: Path) -> jinja2.Template:
     return jinja2.Template(path.read_text())
 
 
-def render_prompt(template: jinja2.Template, test: TestCase, directory_tree: str) -> str:
+def render_prompt(
+    template: jinja2.Template, test: TestCase, directory_tree: str
+) -> str:
     """Render a prompt template with test case variables.
 
     Args:
