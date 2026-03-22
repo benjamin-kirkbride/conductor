@@ -5,6 +5,7 @@ description = "AI agent orchestration via the Claude Agent SDK"
 requires-python = ">=3.14"
 dependencies = [
     "claude-agent-sdk",
+    "jinja2",
 ]
 
 [project.scripts]
