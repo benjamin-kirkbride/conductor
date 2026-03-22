@@ -68,7 +68,7 @@ jobs:
         run: uv run pytest -m "not slow" --cov-fail-under=0
 
       - name: Run slow tests
-        run: uv run pytest -m "slow" --cov-append
+        run: uv run pytest -m "slow" --cov-append || test $? -eq 5
 
       - name: Cancel workflow on CI failure
         if: failure()
