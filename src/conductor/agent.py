@@ -83,10 +83,10 @@ async def evaluate_test(test: TestCase, prompt: str, repo_dir: Path) -> AgentRes
 def _parse_output(result_message: ResultMessage, test: TestCase) -> dict[str, Any]:
     """Parse the agent's structured output or JSON result."""
     if result_message.structured_output is not None:
-        return cast(dict[str, Any], result_message.structured_output)
+        return cast("dict[str, Any]", result_message.structured_output)
     if result_message.result is not None:
         try:
-            return cast(dict[str, Any], json.loads(result_message.result))
+            return cast("dict[str, Any]", json.loads(result_message.result))
         except json.JSONDecodeError as e:
             msg = f"Failed to parse result JSON for test {test.name}: {e}"
             raise AgentError(msg) from e
