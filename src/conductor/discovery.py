@@ -14,10 +14,7 @@ def consolidate_tests(raw_lines: list[str]) -> list[TestCase]:
     for line in raw_lines:
         nodeid = re.sub(r"\[.*\]$", "", line)
         seen.setdefault(nodeid, None)
-    return [
-        TestCase(name=nodeid, file_path=nodeid.split("::")[0])
-        for nodeid in seen
-    ]
+    return [TestCase(name=nodeid, file_path=nodeid.split("::")[0]) for nodeid in seen]
 
 
 def discover_tests(repo_dir: Path) -> list[TestCase]:
@@ -30,8 +27,7 @@ def discover_tests(repo_dir: Path) -> list[TestCase]:
         check=True,
     )
     raw_lines = [
-        line for line in result.stdout.splitlines()
-        if "::" in line and line.strip()
+        line for line in result.stdout.splitlines() if "::" in line and line.strip()
     ]
     return consolidate_tests(raw_lines)
 

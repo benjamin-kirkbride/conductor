@@ -129,9 +129,7 @@ def test_discover_tests_filters_non_nodeid_lines(mock_run: patch) -> None:
 
 @patch("conductor.discovery.subprocess.run")
 def test_discover_tests_propagates_subprocess_error(mock_run: patch) -> None:
-    mock_run.side_effect = subprocess.CalledProcessError(
-        returncode=1, cmd=["pytest"]
-    )
+    mock_run.side_effect = subprocess.CalledProcessError(returncode=1, cmd=["pytest"])
     with pytest.raises(subprocess.CalledProcessError):
         discover_tests(Path("/fake/repo"))
 
@@ -161,8 +159,6 @@ def test_clone_repo_returns_path(mock_run: patch) -> None:
 
 @patch("conductor.discovery.subprocess.run")
 def test_clone_repo_propagates_subprocess_error(mock_run: patch) -> None:
-    mock_run.side_effect = subprocess.CalledProcessError(
-        returncode=128, cmd=["git"]
-    )
+    mock_run.side_effect = subprocess.CalledProcessError(returncode=128, cmd=["git"])
     with pytest.raises(subprocess.CalledProcessError):
         clone_repo("https://github.com/example/repo.git")
