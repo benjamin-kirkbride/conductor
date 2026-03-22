@@ -23,7 +23,7 @@ def consolidate_tests(raw_lines: list[str]) -> list[TestCase]:
 def discover_tests(repo_dir: Path) -> list[TestCase]:
     """Run pytest --collect-only and return consolidated test cases."""
     result = subprocess.run(
-        ["pytest", "--collect-only", "-q"],
+        ["pytest", "--collect-only", "-q"],  # noqa: S607
         cwd=repo_dir,
         capture_output=True,
         text=True,
@@ -39,8 +39,8 @@ def discover_tests(repo_dir: Path) -> list[TestCase]:
 def clone_repo(url: str) -> Path:
     """Clone a git repo (shallow) into a temp directory and return its path."""
     dest = Path(tempfile.mkdtemp(prefix="conductor-"))
-    subprocess.run(
-        ["git", "clone", "--depth=1", url, str(dest)],
+    subprocess.run(  # noqa: S603
+        ["git", "clone", "--depth=1", url, str(dest)],  # noqa: S607
         capture_output=True,
         text=True,
         check=True,
