@@ -3,6 +3,8 @@
 import logging
 import sys
 
+from conductor.cli import parse_args
+
 logger = logging.getLogger(__name__)
 
 
@@ -12,7 +14,8 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    logger.info("conductor starting")
+    config = parse_args()
+    logger.info("conductor starting with config: %s", config)
     sys.exit(0)
 
 

@@ -5,6 +5,8 @@ description = "AI agent orchestration via the Claude Agent SDK"
 requires-python = ">=3.14"
 dependencies = [
     "claude-agent-sdk",
+    "jinja2",
+    "rich",
 ]
 
 [project.scripts]
@@ -67,6 +69,9 @@ allow-multiline = false
 
 [tool.pytest.ini_options]
 addopts = "--cov=conductor --cov-report=term-missing -n auto --dist loadgroup"
+filterwarnings = [
+    "ignore::pytest.PytestCollectionWarning",
+]
 markers = [
     "slow: tests with significant wall-clock time",
 ]
@@ -100,4 +105,5 @@ dev = [
     "ruff>=0.15",
     "pyright>=1.1",
     "pytest-randomly>=3.16",
+    "pytest-asyncio>=0.26",
 ]
