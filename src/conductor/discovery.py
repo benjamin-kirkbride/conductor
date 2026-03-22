@@ -34,3 +34,15 @@ def discover_tests(repo_dir: Path) -> list[TestCase]:
         if "::" in line and line.strip()
     ]
     return consolidate_tests(raw_lines)
+
+
+def clone_repo(url: str) -> Path:
+    """Clone a git repo (shallow) into a temp directory and return its path."""
+    dest = Path(tempfile.mkdtemp(prefix="conductor-"))
+    subprocess.run(
+        ["git", "clone", "--depth=1", url, str(dest)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return dest

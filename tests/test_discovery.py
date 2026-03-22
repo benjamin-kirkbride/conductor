@@ -4,7 +4,9 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from conductor.discovery import consolidate_tests, discover_tests
+import pytest
+
+from conductor.discovery import clone_repo, consolidate_tests, discover_tests
 from conductor.models import TestCase
 
 
@@ -130,9 +132,37 @@ def test_discover_tests_propagates_subprocess_error(mock_run: patch) -> None:
     mock_run.side_effect = subprocess.CalledProcessError(
         returncode=1, cmd=["pytest"]
     )
-    try:
+    with pytest.raises(subprocess.CalledProcessError):
         discover_tests(Path("/fake/repo"))
-        msg = "Expected CalledProcessError"
-        raise AssertionError(msg)
-    except subprocess.CalledProcessError:
-        pass
+
+
+# --- clone_repo ---
+
+
+@patch("conductor.discovery.subprocess.run")
+def test_clone_repo_calls_git_correctly(mock_run: patch) -> None:
+    result = clone_repo("https://github.com/example/repo.git")
+    assert isinstance(result, Path)
+    mock_run.assert_called_once()
+    call_args = mock_run.call_args
+    cmd = call_args[0][0]
+    assert cmd[:3] == ["git", "clone", "--depth=1"]
+    assert cmd[3] == "https://github.com/example/repo.git"
+    assert call_args[1]["check"] is True
+    assert call_args[1]["capture_output"] is True
+
+
+@patch("conductor.discovery.subprocess.run")
+def test_clone_repo_returns_path(mock_run: patch) -> None:
+    path = clone_repo("https://github.com/example/repo.git")
+    assert isinstance(path, Path)
+    assert path.exists()
+
+
+@patch("conductor.discovery.subprocess.run")
+def test_clone_repo_propagates_subprocess_error(mock_run: patch) -> None:
+    mock_run.side_effect = subprocess.CalledProcessError(
+        returncode=128, cmd=["git"]
+    )
+    with pytest.raises(subprocess.CalledProcessError):
+        clone_repo("https://github.com/example/repo.git")
