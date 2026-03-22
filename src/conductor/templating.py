@@ -43,7 +43,7 @@ def render_prompt(template: jinja2.Template, test: TestCase, directory_tree: str
     """
     return template.render(
         test_name=test.name,
-        file_path=str(test.file_path),
+        file_path=test.file_path,
         directory_tree=directory_tree,
     )
 

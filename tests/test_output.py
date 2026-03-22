@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import csv
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from conductor.models import AgentResult, AgentStatus, TestCase, TokenUsage
 from conductor.output import write_csv
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _make_result(
@@ -12,7 +17,7 @@ def _make_result(
     reason: str = "Test always passes",
 ) -> AgentResult:
     return AgentResult(
-        test=TestCase(name=name, file_path=Path("tests/test_foo.py")),
+        test=TestCase(name=name, file_path="tests/test_foo.py"),
         is_tautology=is_tautology,
         reason=reason,
         status=AgentStatus.DONE,

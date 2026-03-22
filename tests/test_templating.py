@@ -1,9 +1,14 @@
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import pytest
 
 from conductor.models import TestCase
 from conductor.templating import build_directory_tree, load_template, render_prompt
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestLoadTemplate:
@@ -25,7 +30,7 @@ class TestRenderPrompt:
             "Test: {{ test_name }}\nFile: {{ file_path }}\nTree:\n{{ directory_tree }}"
         )
         template = load_template(template_file)
-        tc = TestCase(name="tests/test_foo.py::test_bar", file_path=Path("tests/test_foo.py"))
+        tc = TestCase(name="tests/test_foo.py::test_bar", file_path="tests/test_foo.py")
         result = render_prompt(template, tc, "src/\n  main.py")
         assert "tests/test_foo.py::test_bar" in result
         assert "tests/test_foo.py" in result
@@ -35,7 +40,7 @@ class TestRenderPrompt:
         template_file = tmp_path / "simple.j2"
         template_file.write_text("Analyze: {{ test_name }}")
         template = load_template(template_file)
-        tc = TestCase(name="test_something", file_path=Path("test.py"))
+        tc = TestCase(name="test_something", file_path="test.py")
         result = render_prompt(template, tc, "tree")
         assert result == "Analyze: test_something"
 

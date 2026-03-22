@@ -1,4 +1,4 @@
-"""Shared data types for Conductor."""
+"""Data models for Conductor."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 class AgentStatus(enum.Enum):
-    """Status of an agent processing a test case."""
+    """Status of an agent execution."""
 
     QUEUED = "queued"
     RUNNING = "running"
@@ -19,31 +19,52 @@ class AgentStatus(enum.Enum):
     FAILED = "failed"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
+class TestCase:
+    """A single test case to evaluate."""
+
+    name: str
+    file_path: str
+
+
+@dataclass(frozen=True, slots=True)
 class TokenUsage:
-    """Token usage and cost for a single agent run."""
+    """Token usage and cost for an agent run."""
 
     input_tokens: int
     output_tokens: int
     total_cost_usd: float
 
 
-@dataclass(frozen=True)
-class TestCase:
-    """A test case to be analyzed."""
-
-    __test__ = False
-
-    name: str
-    file_path: Path
-
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AgentResult:
-    """Result from an agent analyzing a test case."""
+    """Result of an agent evaluating a test case."""
 
     test: TestCase
     is_tautology: bool
     reason: str
     status: AgentStatus
     usage: TokenUsage
+
+
+@dataclass(slots=True)
+class AgentState:
+    """Mutable state tracking for a single agent in the TUI."""
+
+    test: TestCase
+    status: AgentStatus = AgentStatus.QUEUED
+    result: AgentResult | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ConductorConfig:
+    """Configuration for a Conductor run."""
+
+    repo_url: str
+    template_path: Path
+    output_path: Path
+    parallel: int = 5
+    dry_run: bool = False
+    limit: int | None = None

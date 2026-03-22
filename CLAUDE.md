@@ -4,7 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Conductor is an AI agent orchestration tool built on the Claude Agent SDK. It coordinates multiple Claude-powered agents to accomplish complex tasks.
+Conductor is a CLI tool that evaluates pytest test suites for tautologies using parallel Claude agents (via the Claude Agent SDK). It clones a GitHub repo, discovers tests via `pytest --collect-only`, renders a Jinja2 prompt template per test, spawns bounded-concurrency agents to evaluate each test, and writes tautologies to a CSV. A Rich TUI monitors agent status, token usage, and progress.
+
+### CLI usage
+```
+conductor <github-repo-url> \
+  --template PATH       # Jinja2 prompt template
+  --output PATH         # CSV output file
+  --parallel N          # Max concurrent agents (default: 5)
+  --dry-run             # Show tests + rendered prompts, don't run agents
+  --limit N             # Limit output in dry-run mode
+```
+
+### Architecture
+See epic issue #7 for the dependency graph. Key modules:
+- `models.py` — shared types (TestCase, AgentResult, AgentState, ConductorConfig, etc.)
+- `discovery.py` — git clone + pytest collection + parameterized test consolidation
+- `templating.py` — Jinja2 template loading/rendering + directory tree builder
+- `agent.py` — single agent evaluation via `claude_agent_sdk.query()`
+- `orchestrator.py` — `asyncio.Semaphore` + `TaskGroup` bounded parallel execution
+- `output.py` — CSV writer (append mode)
+- `tui.py` — Rich Live monitoring dashboard
+- `cli.py` — argparse → ConductorConfig
 
 ## Don't
 - ever use `—` (use - instead)
