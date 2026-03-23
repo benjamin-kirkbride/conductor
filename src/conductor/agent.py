@@ -6,11 +6,17 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
-from claude_agent_sdk import ClaudeAgentOptions, ResultMessage
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    ToolUseBlock,
+)
 
 from conductor.models import AgentResult, AgentStatus, TokenUsage
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from claude_agent_sdk import Message
@@ -36,7 +42,11 @@ _OUTPUT_SCHEMA: dict[str, object] = {
 
 
 async def evaluate_test(
-    test: TestCase, prompt: str, repo_dir: Path, model: str = "sonnet"
+    test: TestCase,
+    prompt: str,
+    repo_dir: Path,
+    model: str = "sonnet",
+    on_tool_use: Callable[[str], None] | None = None,
 ) -> AgentResult:
     """Evaluate a single test case for tautology via the Claude Agent SDK.
 
@@ -45,6 +55,7 @@ async def evaluate_test(
         prompt: The rendered prompt to send to the agent.
         repo_dir: Path to the cloned repository.
         model: Claude model to use (default: sonnet).
+        on_tool_use: Optional callback invoked with the tool name for each tool use.
 
     Returns:
         An AgentResult with the evaluation outcome.
@@ -70,6 +81,10 @@ async def evaluate_test(
         )
         if isinstance(message, ResultMessage):
             result_message = message
+        elif on_tool_use is not None and isinstance(message, AssistantMessage):
+            for block in message.content:
+                if isinstance(block, ToolUseBlock):
+                    on_tool_use(block.name)
 
     if result_message is None:
         msg = f"No ResultMessage received for test {test.name}"

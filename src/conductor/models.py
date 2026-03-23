@@ -56,6 +56,7 @@ class AgentState:
     result: AgentResult | None = None
     start_time: float | None = None
     end_time: float | None = None
+    last_tool: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

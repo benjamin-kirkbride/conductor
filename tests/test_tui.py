@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import io
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
+
+from rich.console import Console
 
 from conductor.models import (
     AgentResult,
@@ -33,26 +36,28 @@ def _make_usage(
 def _make_result(
     test: TestCase | None = None,
     *,
+    is_tautology: bool = False,
     status: AgentStatus = AgentStatus.DONE,
     usage: TokenUsage | None = None,
 ) -> AgentResult:
     t = test or _make_test()
     return AgentResult(
         test=t,
-        is_tautology=False,
+        is_tautology=is_tautology,
         reason="ok",
         status=status,
         usage=usage or _make_usage(),
     )
 
 
-def _make_state(
+def _make_state(  # noqa: PLR0913
     name: str = "tests/test_foo.py::test_bar",
     *,
     status: AgentStatus = AgentStatus.QUEUED,
     result: AgentResult | None = None,
     start_time: float | None = None,
     end_time: float | None = None,
+    last_tool: str | None = None,
 ) -> AgentState:
     return AgentState(
         test=_make_test(name),
@@ -60,6 +65,7 @@ def _make_state(
         result=result,
         start_time=start_time,
         end_time=end_time,
+        last_tool=last_tool,
     )
 
 
@@ -296,3 +302,138 @@ class TestBuildDisplay:
         tracker = _make_tracker(total=0)
         display = tracker._build_display()
         assert display is not None
+
+
+def _render(tracker: TuiTracker) -> str:
+    """Render the TUI display to a plain string for assertions."""
+    buf = io.StringIO()
+    console = Console(file=buf, force_terminal=False, width=120)
+    console.print(tracker._build_display())
+    return buf.getvalue()
+
+
+class TestBuildDisplayActiveOnly:
+    def test_only_running_agents_shown(self) -> None:
+        tracker = _make_tracker(total=3)
+        tracker.update(_make_state("test_queued", status=AgentStatus.QUEUED))
+        tracker.update(_make_state("test_running", status=AgentStatus.RUNNING))
+        test = _make_test("test_done")
+        result = _make_result(test)
+        tracker.update(_make_state("test_done", status=AgentStatus.DONE, result=result))
+        output = _render(tracker)
+        assert "test_running" in output
+        assert "test_queued" not in output
+        assert "test_done" not in output
+
+    def test_shows_last_tool(self) -> None:
+        tracker = _make_tracker(total=1)
+        tracker.update(
+            _make_state("test_a", status=AgentStatus.RUNNING, last_tool="Grep")
+        )
+        output = _render(tracker)
+        assert "Grep" in output
+
+    def test_shows_ellipsis_when_no_tool(self) -> None:
+        tracker = _make_tracker(total=1)
+        tracker.update(_make_state("test_a", status=AgentStatus.RUNNING))
+        output = _render(tracker)
+        assert "..." in output
+
+
+class TestBuildDisplayCounts:
+    def test_shows_tautology_count(self) -> None:
+        tracker = _make_tracker(total=3)
+        for i in range(2):
+            test = _make_test(f"test_{i}")
+            result = _make_result(test, is_tautology=True)
+            tracker.update(
+                _make_state(f"test_{i}", status=AgentStatus.DONE, result=result)
+            )
+        test = _make_test("test_2")
+        result = _make_result(test, is_tautology=False)
+        tracker.update(_make_state("test_2", status=AgentStatus.DONE, result=result))
+        output = _render(tracker)
+        assert "Tautologies: 2" in output
+        assert "Not tautologies: 1" in output
+
+    def test_shows_progress(self) -> None:
+        tracker = _make_tracker(total=5)
+        test = _make_test("test_a")
+        result = _make_result(test)
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
+        output = _render(tracker)
+        assert "1/5" in output
+
+
+class TestTautologyCountProperty:
+    def test_no_results(self) -> None:
+        tracker = _make_tracker()
+        assert tracker.tautology_count == 0
+
+    def test_counts_tautologies(self) -> None:
+        tracker = _make_tracker()
+        test = _make_test("test_a")
+        result = _make_result(test, is_tautology=True)
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
+        test2 = _make_test("test_b")
+        result2 = _make_result(test2, is_tautology=False)
+        tracker.update(_make_state("test_b", status=AgentStatus.DONE, result=result2))
+        assert tracker.tautology_count == 1
+
+    def test_excludes_running(self) -> None:
+        tracker = _make_tracker()
+        tracker.update(_make_state("test_a", status=AgentStatus.RUNNING))
+        assert tracker.tautology_count == 0
+
+
+class TestNonTautologyCountProperty:
+    def test_counts_non_tautologies(self) -> None:
+        tracker = _make_tracker()
+        test = _make_test("test_a")
+        result = _make_result(test, is_tautology=False)
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
+        test2 = _make_test("test_b")
+        result2 = _make_result(test2, is_tautology=True)
+        tracker.update(_make_state("test_b", status=AgentStatus.DONE, result=result2))
+        assert tracker.non_tautology_count == 1
+
+
+class TestNonTtyTautologyOutput:
+    def test_non_tty_update_done_shows_tautology(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        tracker = _make_tracker(total=2)
+        tracker.start()
+        test = _make_test("test_a")
+        result = _make_result(test, is_tautology=True)
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
+        captured = capsys.readouterr()
+        assert "tautology" in captured.out
+
+    def test_non_tty_update_done_shows_not_tautology(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        tracker = _make_tracker(total=2)
+        tracker.start()
+        test = _make_test("test_a")
+        result = _make_result(test, is_tautology=False)
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
+        captured = capsys.readouterr()
+        assert "not tautological" in captured.out
+
+    def test_non_tty_stop_prints_tautology_counts(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        tracker = _make_tracker(total=2)
+        tracker.start()
+        test = _make_test("test_a")
+        result = _make_result(test, is_tautology=True)
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
+        test2 = _make_test("test_b")
+        result2 = _make_result(test2, is_tautology=False)
+        tracker.update(_make_state("test_b", status=AgentStatus.DONE, result=result2))
+        capsys.readouterr()  # clear update prints
+        tracker.stop()
+        captured = capsys.readouterr()
+        assert "Tautologies: 1" in captured.out
+        assert "Not tautologies: 1" in captured.out
