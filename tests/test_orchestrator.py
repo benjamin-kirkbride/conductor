@@ -46,10 +46,10 @@ class MockTui:
     """Mock TUI that records update calls."""
 
     def __init__(self):
-        self.updates: list[tuple[str, AgentStatus]] = []
+        self.updates: list[tuple[str, AgentStatus, str | None]] = []
 
     def update(self, state: AgentState) -> None:
-        self.updates.append((state.test.name, state.status))
+        self.updates.append((state.test.name, state.status, state.last_tool))
 
 
 # Verify MockTui satisfies the protocol
@@ -151,7 +151,7 @@ class TestOrchestrateTuiUpdates:
                 [test], Path("/repo"), _make_config(), _TEMPLATE, _TREE, tui=tui
             )
 
-        statuses = [s for name, s in tui.updates]
+        statuses = [s for _, s, _ in tui.updates]
         assert AgentStatus.QUEUED in statuses
         assert AgentStatus.RUNNING in statuses
         assert AgentStatus.DONE in statuses
@@ -192,7 +192,7 @@ class TestOrchestrateTuiFailureTransitions:
                 [test], Path("/repo"), _make_config(), _TEMPLATE, _TREE, tui=tui
             )
 
-        statuses = [s for name, s in tui.updates]
+        statuses = [s for _, s, _ in tui.updates]
         assert AgentStatus.QUEUED in statuses
         assert AgentStatus.RUNNING in statuses
         assert AgentStatus.FAILED in statuses
@@ -216,3 +216,50 @@ class TestOrchestratePreservesOrder:
 
         for i, result in enumerate(results):
             assert result.test == tests[i]
+
+
+class TestOrchestrateOnToolUseCallback:
+    async def test_on_tool_use_passed_to_evaluate_test(self):
+        test = _make_test()
+        captured_kwargs: list[dict] = []
+
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
+            captured_kwargs.append(kwargs)
+            return _make_result(t)
+
+        with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
+            await orchestrate(
+                [test], Path("/repo"), _make_config(), _TEMPLATE, _TREE
+            )
+
+        assert len(captured_kwargs) == 1
+        assert "on_tool_use" in captured_kwargs[0]
+        assert callable(captured_kwargs[0]["on_tool_use"])
+
+    async def test_tui_receives_last_tool_via_callback(self):
+        test = _make_test()
+        tui = MockTui()
+
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
+            # Simulate the callback being invoked during execution
+            on_tool_use = kwargs.get("on_tool_use")
+            if on_tool_use is not None:
+                on_tool_use("Read")
+                on_tool_use("Grep")
+            return _make_result(t)
+
+        with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
+            await orchestrate(
+                [test], Path("/repo"), _make_config(), _TEMPLATE, _TREE, tui=tui
+            )
+
+        # Find the tool-use updates (RUNNING status with last_tool set)
+        tool_updates = [
+            (name, status, tool)
+            for name, status, tool in tui.updates
+            if tool is not None
+        ]
+        assert len(tool_updates) >= 2
+        tools = [tool for _, _, tool in tool_updates]
+        assert "Read" in tools
+        assert "Grep" in tools

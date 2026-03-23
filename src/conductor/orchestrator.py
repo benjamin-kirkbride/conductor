@@ -61,9 +61,16 @@ async def orchestrate(  # noqa: PLR0913
             if tui is not None:
                 tui.update(state)
 
+            def on_tool_use(tool_name: str) -> None:
+                state.last_tool = tool_name
+                if tui is not None:
+                    tui.update(state)
+
             try:
                 prompt = render_prompt(template, test, directory_tree)
-                result = await evaluate_test(test, prompt, repo_dir, model=config.model)
+                result = await evaluate_test(
+                    test, prompt, repo_dir, model=config.model, on_tool_use=on_tool_use
+                )
             except Exception as exc:  # noqa: BLE001
                 state.status = AgentStatus.FAILED
                 state.end_time = time.monotonic()
