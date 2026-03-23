@@ -9,7 +9,7 @@ from claude_agent_sdk import (
     TextBlock,
 )
 
-from conductor.agent import AgentError, _extract_usage, _parse_output, evaluate_test
+from conductor.agent import AgentError, _accumulate_usage, _parse_output, evaluate_test
 from conductor.models import AgentStatus, TestCase, TokenUsage
 
 
@@ -241,6 +241,36 @@ class TestEvaluateTestIgnoresNonResultMessages:
         assert result.status == AgentStatus.DONE
 
 
+class TestEvaluateTestAccumulatesTokenUsage:
+    async def test_sums_usage_across_all_messages(self):
+        test = _make_test()
+        assistant_msg1 = AssistantMessage(
+            content=[TextBlock(text="thinking...")],
+            model="claude-sonnet-4-6",
+            usage={"input_tokens": 200, "output_tokens": 100},
+        )
+        assistant_msg2 = AssistantMessage(
+            content=[TextBlock(text="more thinking...")],
+            model="claude-sonnet-4-6",
+            usage={"input_tokens": 150, "output_tokens": 80},
+        )
+        result_msg = _make_result_message(
+            structured_output={"is_tautology": False, "reason": "ok"},
+            usage={"input_tokens": 50, "output_tokens": 20},
+            total_cost_usd=0.05,
+        )
+
+        with patch(
+            "conductor.agent.claude_agent_sdk.query",
+            return_value=_fake_query(assistant_msg1, assistant_msg2, result_msg),
+        ):
+            result = await evaluate_test(test, "prompt", Path("/repo"))
+
+        assert result.usage == TokenUsage(
+            input_tokens=400, output_tokens=200, total_cost_usd=0.05
+        )
+
+
 class TestParseOutput:
     def test_structured_output(self):
         msg = _make_result_message(
@@ -267,18 +297,25 @@ class TestParseOutput:
             _parse_output(msg, test)
 
 
-class TestExtractUsage:
-    def test_with_usage(self):
+class TestAccumulateUsage:
+    def test_with_usage_dict(self):
         msg = _make_result_message(
             usage={"input_tokens": 100, "output_tokens": 50},
-            total_cost_usd=0.01,
         )
-        assert _extract_usage(msg) == TokenUsage(
-            input_tokens=100, output_tokens=50, total_cost_usd=0.01
+        assert _accumulate_usage(msg, 0, 0) == (100, 50)
+
+    def test_accumulates_onto_existing_totals(self):
+        msg = _make_result_message(
+            usage={"input_tokens": 100, "output_tokens": 50},
         )
+        assert _accumulate_usage(msg, 200, 80) == (300, 130)
+
+    def test_no_usage_attribute(self):
+        msg = AssistantMessage(
+            content=[TextBlock(text="hello")], model="claude-sonnet-4-6"
+        )
+        assert _accumulate_usage(msg, 10, 5) == (10, 5)
 
     def test_null_usage(self):
         msg = _make_result_message()
-        assert _extract_usage(msg) == TokenUsage(
-            input_tokens=0, output_tokens=0, total_cost_usd=0.0
-        )
+        assert _accumulate_usage(msg, 10, 5) == (10, 5)

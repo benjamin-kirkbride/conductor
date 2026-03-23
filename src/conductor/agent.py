@@ -13,6 +13,8 @@ from conductor.models import AgentResult, AgentStatus, TokenUsage
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from claude_agent_sdk import Message
+
     from conductor.models import TestCase
 
 
@@ -59,7 +61,13 @@ async def evaluate_test(
     )
 
     result_message: ResultMessage | None = None
+    total_input = 0
+    total_output = 0
+
     async for message in claude_agent_sdk.query(prompt=prompt, options=options):
+        total_input, total_output = _accumulate_usage(
+            message, total_input, total_output
+        )
         if isinstance(message, ResultMessage):
             result_message = message
 
@@ -73,7 +81,11 @@ async def evaluate_test(
         raise AgentError(msg)
 
     parsed = _parse_output(result_message, test)
-    usage = _extract_usage(result_message)
+    usage = TokenUsage(
+        input_tokens=total_input,
+        output_tokens=total_output,
+        total_cost_usd=result_message.total_cost_usd or 0.0,
+    )
 
     return AgentResult(
         test=test,
@@ -98,11 +110,12 @@ def _parse_output(result_message: ResultMessage, test: TestCase) -> dict[str, An
     raise AgentError(msg)
 
 
-def _extract_usage(result_message: ResultMessage) -> TokenUsage:
-    """Extract token usage from a ResultMessage."""
-    usage = result_message.usage or {}
-    return TokenUsage(
-        input_tokens=usage.get("input_tokens", 0),
-        output_tokens=usage.get("output_tokens", 0),
-        total_cost_usd=result_message.total_cost_usd or 0.0,
-    )
+def _accumulate_usage(
+    message: Message, total_input: int, total_output: int
+) -> tuple[int, int]:
+    """Accumulate token usage from any message that carries a usage dict."""
+    usage = getattr(message, "usage", None)
+    if isinstance(usage, dict):
+        total_input += usage.get("input_tokens", 0)
+        total_output += usage.get("output_tokens", 0)
+    return total_input, total_output
