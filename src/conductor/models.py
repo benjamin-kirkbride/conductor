@@ -68,3 +68,4 @@ class ConductorConfig:
     parallel: int = 5
     dry_run: bool = False
     limit: int | None = None
+    model: str = "sonnet"

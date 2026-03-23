@@ -52,6 +52,14 @@ class TestParseArgs:
         config = parse_args([*BASE_ARGV, "--limit", "3"])
         assert config.limit == 3
 
+    def test_model_default(self) -> None:
+        config = parse_args(BASE_ARGV)
+        assert config.model == "sonnet"
+
+    def test_model_custom(self) -> None:
+        config = parse_args([*BASE_ARGV, "--model", "opus"])
+        assert config.model == "opus"
+
     def test_all_flags(self) -> None:
         argv = [
             "https://github.com/a/b",
@@ -72,6 +80,7 @@ class TestParseArgs:
         assert config.parallel == 8
         assert config.dry_run is True
         assert config.limit == 5
+        assert config.model == "sonnet"
 
     def test_missing_repo_url(self) -> None:
         with pytest.raises(SystemExit):

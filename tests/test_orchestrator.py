@@ -61,7 +61,7 @@ class TestOrchestrateSingleTest:
         test = _make_test()
         expected = _make_result(test)
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             return expected
 
         with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
@@ -77,7 +77,7 @@ class TestOrchestrateMultipleTests:
     async def test_all_results_returned_in_order(self):
         tests = [_make_test(f"tests/test_{i}.py::test_{i}") for i in range(4)]
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             return _make_result(t)
 
         with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
@@ -94,7 +94,7 @@ class TestOrchestrateFailedTestContinuesOthers:
     async def test_failed_test_does_not_stop_others(self):
         tests = [_make_test(f"tests/test_{i}.py::test_{i}") for i in range(3)]
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             if t == tests[1]:
                 msg = "agent crashed"
                 raise RuntimeError(msg)
@@ -119,7 +119,7 @@ class TestOrchestrateSemaphoreLimitsConcurrency:
         current_concurrent = 0
         lock = asyncio.Lock()
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             nonlocal peak_concurrent, current_concurrent
             async with lock:
                 current_concurrent += 1
@@ -143,7 +143,7 @@ class TestOrchestrateTuiUpdates:
         test = _make_test()
         tui = MockTui()
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             return _make_result(t)
 
         with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
@@ -161,7 +161,7 @@ class TestOrchestrateTuiNone:
     async def test_no_error_without_tui(self):
         test = _make_test()
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             return _make_result(t)
 
         with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
@@ -183,7 +183,7 @@ class TestOrchestrateTuiFailureTransitions:
         test = _make_test()
         tui = MockTui()
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             msg = "boom"
             raise RuntimeError(msg)
 
@@ -203,7 +203,7 @@ class TestOrchestratePreservesOrder:
     async def test_results_match_input_order(self):
         tests = [_make_test(f"tests/test_{i}.py::test_{i}") for i in range(5)]
 
-        async def mock_evaluate(t, prompt, repo_dir):
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
             # Vary delay to test ordering isn't dependent on completion time
             idx = int(t.name.split("_")[-1].split(".")[0])
             await asyncio.sleep(0.01 * (5 - idx))

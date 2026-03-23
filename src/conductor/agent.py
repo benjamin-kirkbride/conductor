@@ -33,7 +33,9 @@ _OUTPUT_SCHEMA: dict[str, object] = {
 }
 
 
-async def evaluate_test(test: TestCase, prompt: str, repo_dir: Path) -> AgentResult:
+async def evaluate_test(
+    test: TestCase, prompt: str, repo_dir: Path, model: str = "sonnet"
+) -> AgentResult:
     """Evaluate a single test case for tautology via the Claude Agent SDK.
 
     Args:
@@ -52,6 +54,7 @@ async def evaluate_test(test: TestCase, prompt: str, repo_dir: Path) -> AgentRes
         cwd=str(repo_dir),
         permission_mode="bypassPermissions",
         output_format=_OUTPUT_SCHEMA,
+        model=model,
     )
 
     result_message: ResultMessage | None = None
