@@ -21,7 +21,7 @@ def _make_result(
         is_tautology=is_tautology,
         reason=reason,
         status=AgentStatus.DONE,
-        usage=TokenUsage(input_tokens=100, output_tokens=50, total_cost_usd=0.005),
+        usage=TokenUsage(total_tokens=150, total_cost_usd=0.005),
     )
 
 

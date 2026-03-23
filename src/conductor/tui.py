@@ -51,7 +51,7 @@ class TuiTracker:
             usage = self.cumulative_usage
             print(
                 f"Completed {self.completed_count}/{self._total} | "
-                f"Tokens: {usage.input_tokens} in / {usage.output_tokens} out | "
+                f"Tokens: {usage.total_tokens:,} | "
                 f"Cost: ${usage.total_cost_usd:.4f}"
             )
 
@@ -70,17 +70,14 @@ class TuiTracker:
     @property
     def cumulative_usage(self) -> TokenUsage:
         """Sum token usage across all agents with results."""
-        input_tokens = 0
-        output_tokens = 0
+        total_tokens = 0
         total_cost = 0.0
         for s in self._states.values():
             if s.result is not None:
-                input_tokens += s.result.usage.input_tokens
-                output_tokens += s.result.usage.output_tokens
+                total_tokens += s.result.usage.total_tokens
                 total_cost += s.result.usage.total_cost_usd
         return TokenUsage(
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
+            total_tokens=total_tokens,
             total_cost_usd=total_cost,
         )
 
@@ -101,8 +98,7 @@ class TuiTracker:
             status_text = Text(state.status.value.upper(), style=style)
             tokens = ""
             if state.result is not None:
-                u = state.result.usage
-                tokens = f"{u.input_tokens + u.output_tokens:,}"
+                tokens = f"{state.result.usage.total_tokens:,}"
             table.add_row(name, status_text, tokens)
 
         usage = self.cumulative_usage
@@ -115,7 +111,7 @@ class TuiTracker:
         table.add_row(
             "",
             "",
-            f"{usage.input_tokens:,} in / {usage.output_tokens:,} out",
+            f"{usage.total_tokens:,} tokens",
         )
 
         return table

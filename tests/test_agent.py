@@ -6,10 +6,11 @@ from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
     ResultMessage,
+    TaskNotificationMessage,
     TextBlock,
 )
 
-from conductor.agent import AgentError, _accumulate_usage, _parse_output, evaluate_test
+from conductor.agent import AgentError, _extract_usage, _parse_output, evaluate_test
 from conductor.models import AgentStatus, TestCase, TokenUsage
 
 
@@ -39,6 +40,22 @@ def _make_result_message(
     )
 
 
+def _make_task_notification(
+    *, total_tokens: int = 0, tool_uses: int = 0, duration_ms: int = 1000
+) -> TaskNotificationMessage:
+    return TaskNotificationMessage(
+        subtype="task_notification",
+        data={},
+        task_id="test-task",
+        status="completed",
+        output_file="",
+        summary="",
+        uuid="test-uuid",
+        session_id="test-session",
+        usage={"total_tokens": total_tokens, "tool_uses": tool_uses, "duration_ms": duration_ms},
+    )
+
+
 async def _fake_query(*messages):
     for msg in messages:
         yield msg
@@ -47,15 +64,15 @@ async def _fake_query(*messages):
 class TestEvaluateTestStructuredOutput:
     async def test_returns_correct_agent_result(self):
         test = _make_test()
+        task_notification = _make_task_notification(total_tokens=500)
         result_msg = _make_result_message(
             structured_output={"is_tautology": True, "reason": "test is tautological"},
-            usage={"input_tokens": 100, "output_tokens": 50},
             total_cost_usd=0.01,
         )
 
         with patch(
             "conductor.agent.claude_agent_sdk.query",
-            return_value=_fake_query(result_msg),
+            return_value=_fake_query(task_notification, result_msg),
         ):
             result = await evaluate_test(test, "prompt", Path("/repo"))
 
@@ -63,9 +80,7 @@ class TestEvaluateTestStructuredOutput:
         assert result.is_tautology is True
         assert result.reason == "test is tautological"
         assert result.status == AgentStatus.DONE
-        assert result.usage == TokenUsage(
-            input_tokens=100, output_tokens=50, total_cost_usd=0.01
-        )
+        assert result.usage == TokenUsage(total_tokens=500, total_cost_usd=0.01)
 
 
 class TestEvaluateTestJsonFallback:
@@ -162,9 +177,7 @@ class TestEvaluateTestNullUsageDefaults:
         ):
             result = await evaluate_test(test, "prompt", Path("/repo"))
 
-        assert result.usage == TokenUsage(
-            input_tokens=0, output_tokens=0, total_cost_usd=0.0
-        )
+        assert result.usage == TokenUsage(total_tokens=0, total_cost_usd=0.0)
 
 
 class TestEvaluateTestPassesCorrectOptions:
@@ -218,19 +231,10 @@ class TestEvaluateTestIgnoresNonResultMessages:
         assert result.status == AgentStatus.DONE
 
 
-class TestEvaluateTestAccumulatesTokenUsage:
-    async def test_sums_usage_across_all_messages(self):
+class TestEvaluateTestUsesTaskNotificationTokens:
+    async def test_prefers_task_notification_over_result_usage(self):
         test = _make_test()
-        assistant_msg1 = AssistantMessage(
-            content=[TextBlock(text="thinking...")],
-            model="claude-sonnet-4-6",
-            usage={"input_tokens": 200, "output_tokens": 100},
-        )
-        assistant_msg2 = AssistantMessage(
-            content=[TextBlock(text="more thinking...")],
-            model="claude-sonnet-4-6",
-            usage={"input_tokens": 150, "output_tokens": 80},
-        )
+        task_notification = _make_task_notification(total_tokens=5000)
         result_msg = _make_result_message(
             structured_output={"is_tautology": False, "reason": "ok"},
             usage={"input_tokens": 50, "output_tokens": 20},
@@ -239,13 +243,27 @@ class TestEvaluateTestAccumulatesTokenUsage:
 
         with patch(
             "conductor.agent.claude_agent_sdk.query",
-            return_value=_fake_query(assistant_msg1, assistant_msg2, result_msg),
+            return_value=_fake_query(task_notification, result_msg),
         ):
             result = await evaluate_test(test, "prompt", Path("/repo"))
 
-        assert result.usage == TokenUsage(
-            input_tokens=400, output_tokens=200, total_cost_usd=0.05
+        assert result.usage == TokenUsage(total_tokens=5000, total_cost_usd=0.05)
+
+    async def test_falls_back_to_result_usage_without_notification(self):
+        test = _make_test()
+        result_msg = _make_result_message(
+            structured_output={"is_tautology": False, "reason": "ok"},
+            usage={"input_tokens": 100, "output_tokens": 50},
+            total_cost_usd=0.01,
         )
+
+        with patch(
+            "conductor.agent.claude_agent_sdk.query",
+            return_value=_fake_query(result_msg),
+        ):
+            result = await evaluate_test(test, "prompt", Path("/repo"))
+
+        assert result.usage == TokenUsage(total_tokens=150, total_cost_usd=0.01)
 
 
 class TestParseOutput:
@@ -274,25 +292,41 @@ class TestParseOutput:
             _parse_output(msg, test)
 
 
-class TestAccumulateUsage:
-    def test_with_usage_dict(self):
-        msg = _make_result_message(
+class TestExtractUsage:
+    def test_with_task_notification(self):
+        result_msg = _make_result_message(total_cost_usd=0.05)
+        notification = _make_task_notification(total_tokens=1000)
+        usage = _extract_usage(result_msg, notification)
+        assert usage == TokenUsage(total_tokens=1000, total_cost_usd=0.05)
+
+    def test_fallback_to_result_usage(self):
+        result_msg = _make_result_message(
             usage={"input_tokens": 100, "output_tokens": 50},
+            total_cost_usd=0.01,
         )
-        assert _accumulate_usage(msg, 0, 0) == (100, 50)
+        usage = _extract_usage(result_msg, None)
+        assert usage == TokenUsage(total_tokens=150, total_cost_usd=0.01)
 
-    def test_accumulates_onto_existing_totals(self):
-        msg = _make_result_message(
-            usage={"input_tokens": 100, "output_tokens": 50},
+    def test_null_usage_defaults_to_zero(self):
+        result_msg = _make_result_message()
+        usage = _extract_usage(result_msg, None)
+        assert usage == TokenUsage(total_tokens=0, total_cost_usd=0.0)
+
+    def test_notification_with_null_usage(self):
+        result_msg = _make_result_message(
+            usage={"input_tokens": 30, "output_tokens": 20},
+            total_cost_usd=0.005,
         )
-        assert _accumulate_usage(msg, 200, 80) == (300, 130)
-
-    def test_no_usage_attribute(self):
-        msg = AssistantMessage(
-            content=[TextBlock(text="hello")], model="claude-sonnet-4-6"
+        notification = TaskNotificationMessage(
+            subtype="task_notification",
+            data={},
+            task_id="test-task",
+            status="completed",
+            output_file="",
+            summary="",
+            uuid="test-uuid",
+            session_id="test-session",
+            usage=None,
         )
-        assert _accumulate_usage(msg, 10, 5) == (10, 5)
-
-    def test_null_usage(self):
-        msg = _make_result_message()
-        assert _accumulate_usage(msg, 10, 5) == (10, 5)
+        usage = _extract_usage(result_msg, notification)
+        assert usage == TokenUsage(total_tokens=50, total_cost_usd=0.005)

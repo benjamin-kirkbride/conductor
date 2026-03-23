@@ -40,21 +40,20 @@ class TestTestCase:
 
 class TestTokenUsage:
     def test_construction(self) -> None:
-        usage = TokenUsage(input_tokens=100, output_tokens=50, total_cost_usd=0.01)
-        assert usage.input_tokens == 100
-        assert usage.output_tokens == 50
+        usage = TokenUsage(total_tokens=150, total_cost_usd=0.01)
+        assert usage.total_tokens == 150
         assert usage.total_cost_usd == 0.01
 
     def test_frozen(self) -> None:
-        usage = TokenUsage(input_tokens=1, output_tokens=2, total_cost_usd=0.0)
+        usage = TokenUsage(total_tokens=1, total_cost_usd=0.0)
         with pytest.raises(FrozenInstanceError):
-            usage.input_tokens = 99  # type: ignore[misc]
+            usage.total_tokens = 99  # type: ignore[misc]
 
 
 class TestAgentResult:
     def test_construction(self) -> None:
         tc = TestCase(name="test_a", file_path="a.py")
-        usage = TokenUsage(input_tokens=10, output_tokens=5, total_cost_usd=0.001)
+        usage = TokenUsage(total_tokens=15, total_cost_usd=0.001)
         result = AgentResult(
             test=tc,
             is_tautology=True,
@@ -70,7 +69,7 @@ class TestAgentResult:
 
     def test_frozen(self) -> None:
         tc = TestCase(name="t", file_path="f")
-        usage = TokenUsage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
+        usage = TokenUsage(total_tokens=0, total_cost_usd=0.0)
         result = AgentResult(
             test=tc, is_tautology=False, reason="", status=AgentStatus.DONE, usage=usage
         )
@@ -90,7 +89,7 @@ class TestAgentState:
 
     def test_mutable(self) -> None:
         tc = TestCase(name="t", file_path="f")
-        usage = TokenUsage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
+        usage = TokenUsage(total_tokens=0, total_cost_usd=0.0)
         result = AgentResult(
             test=tc,
             is_tautology=False,

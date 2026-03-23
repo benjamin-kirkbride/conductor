@@ -34,7 +34,7 @@ def _make_result(test: TestCase) -> AgentResult:
         is_tautology=False,
         reason="not tautological",
         status=AgentStatus.DONE,
-        usage=TokenUsage(input_tokens=10, output_tokens=5, total_cost_usd=0.001),
+        usage=TokenUsage(total_tokens=15, total_cost_usd=0.001),
     )
 
 
