@@ -42,6 +42,7 @@ async def evaluate_test(
         test: The test case to evaluate.
         prompt: The rendered prompt to send to the agent.
         repo_dir: Path to the cloned repository.
+        model: Claude model to use (default: sonnet).
 
     Returns:
         An AgentResult with the evaluation outcome.
