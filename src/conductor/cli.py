@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--limit",
         type=int,
         default=None,
-        help="Limit output in dry-run mode",
+        help="Limit the number of tests to process",
     )
     return parser
 
