@@ -7,6 +7,7 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ResultMessage,
     TextBlock,
+    ToolUseBlock,
 )
 
 from conductor.agent import AgentError, _accumulate_usage, _parse_output, evaluate_test
@@ -319,3 +320,98 @@ class TestAccumulateUsage:
     def test_null_usage(self):
         msg = _make_result_message()
         assert _accumulate_usage(msg, 10, 5) == (10, 5)
+
+
+class TestOnToolUseCallback:
+    async def test_callback_called_for_tool_use_block(self):
+        test = _make_test()
+        assistant_msg = AssistantMessage(
+            content=[ToolUseBlock(id="tu_1", name="Read", input={"file_path": "/f"})],
+            model="claude-sonnet-4-6",
+        )
+        result_msg = _make_result_message(
+            structured_output={"is_tautology": False, "reason": "ok"},
+            usage={"input_tokens": 10, "output_tokens": 5},
+            total_cost_usd=0.001,
+        )
+        calls: list[str] = []
+
+        with patch(
+            "conductor.agent.claude_agent_sdk.query",
+            return_value=_fake_query(assistant_msg, result_msg),
+        ):
+            await evaluate_test(
+                test, "prompt", Path("/repo"), on_tool_use=calls.append
+            )
+
+        assert calls == ["Read"]
+
+    async def test_callback_called_multiple_times(self):
+        test = _make_test()
+        msg1 = AssistantMessage(
+            content=[ToolUseBlock(id="tu_1", name="Read", input={})],
+            model="claude-sonnet-4-6",
+        )
+        msg2 = AssistantMessage(
+            content=[ToolUseBlock(id="tu_2", name="Grep", input={})],
+            model="claude-sonnet-4-6",
+        )
+        result_msg = _make_result_message(
+            structured_output={"is_tautology": False, "reason": "ok"},
+            usage={"input_tokens": 10, "output_tokens": 5},
+            total_cost_usd=0.001,
+        )
+        calls: list[str] = []
+
+        with patch(
+            "conductor.agent.claude_agent_sdk.query",
+            return_value=_fake_query(msg1, msg2, result_msg),
+        ):
+            await evaluate_test(
+                test, "prompt", Path("/repo"), on_tool_use=calls.append
+            )
+
+        assert calls == ["Read", "Grep"]
+
+    async def test_none_callback_does_not_error(self):
+        test = _make_test()
+        assistant_msg = AssistantMessage(
+            content=[ToolUseBlock(id="tu_1", name="Read", input={})],
+            model="claude-sonnet-4-6",
+        )
+        result_msg = _make_result_message(
+            structured_output={"is_tautology": False, "reason": "ok"},
+            usage={"input_tokens": 10, "output_tokens": 5},
+            total_cost_usd=0.001,
+        )
+
+        with patch(
+            "conductor.agent.claude_agent_sdk.query",
+            return_value=_fake_query(assistant_msg, result_msg),
+        ):
+            result = await evaluate_test(test, "prompt", Path("/repo"))
+
+        assert result.status == AgentStatus.DONE
+
+    async def test_callback_not_called_for_text_only(self):
+        test = _make_test()
+        assistant_msg = AssistantMessage(
+            content=[TextBlock(text="thinking...")],
+            model="claude-sonnet-4-6",
+        )
+        result_msg = _make_result_message(
+            structured_output={"is_tautology": False, "reason": "ok"},
+            usage={"input_tokens": 10, "output_tokens": 5},
+            total_cost_usd=0.001,
+        )
+        calls: list[str] = []
+
+        with patch(
+            "conductor.agent.claude_agent_sdk.query",
+            return_value=_fake_query(assistant_msg, result_msg),
+        ):
+            await evaluate_test(
+                test, "prompt", Path("/repo"), on_tool_use=calls.append
+            )
+
+        assert calls == []
