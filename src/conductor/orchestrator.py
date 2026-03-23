@@ -75,8 +75,7 @@ async def orchestrate(  # noqa: PLR0913
                     reason=str(exc),
                     status=AgentStatus.FAILED,
                     usage=TokenUsage(
-                        input_tokens=0,
-                        output_tokens=0,
+                        total_tokens=0,
                         total_cost_usd=0.0,
                     ),
                 )

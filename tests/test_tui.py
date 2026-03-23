@@ -23,11 +23,9 @@ def _make_test(name: str = "tests/test_foo.py::test_bar") -> TestCase:
 
 
 def _make_usage(
-    input_tokens: int = 100, output_tokens: int = 50, cost: float = 0.005
+    total_tokens: int = 150, cost: float = 0.005
 ) -> TokenUsage:
-    return TokenUsage(
-        input_tokens=input_tokens, output_tokens=output_tokens, total_cost_usd=cost
-    )
+    return TokenUsage(total_tokens=total_tokens, total_cost_usd=cost)
 
 
 def _make_result(
@@ -102,50 +100,45 @@ class TestTuiTrackerCumulativeUsage:
     def test_no_results_returns_zero_usage(self) -> None:
         tracker = _make_tracker()
         usage = tracker.cumulative_usage
-        assert usage.input_tokens == 0
-        assert usage.output_tokens == 0
+        assert usage.total_tokens == 0
         assert usage.total_cost_usd == 0.0
 
     def test_single_completed_agent(self) -> None:
         tracker = _make_tracker()
         test = _make_test("test_a")
-        result = _make_result(test, usage=_make_usage(200, 100, 0.01))
+        result = _make_result(test, usage=_make_usage(300, 0.01))
         tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
         usage = tracker.cumulative_usage
-        assert usage.input_tokens == 200
-        assert usage.output_tokens == 100
+        assert usage.total_tokens == 300
         assert usage.total_cost_usd == 0.01
 
     def test_multiple_completed_agents_summed(self) -> None:
         tracker = _make_tracker()
-        for i, (inp, out, cost) in enumerate([(100, 50, 0.005), (200, 80, 0.01)]):
+        for i, (tokens, cost) in enumerate([(150, 0.005), (280, 0.01)]):
             name = f"test_{i}"
             test = _make_test(name)
-            result = _make_result(test, usage=_make_usage(inp, out, cost))
+            result = _make_result(test, usage=_make_usage(tokens, cost))
             tracker.update(_make_state(name, status=AgentStatus.DONE, result=result))
         usage = tracker.cumulative_usage
-        assert usage.input_tokens == 300
-        assert usage.output_tokens == 130
+        assert usage.total_tokens == 430
         assert usage.total_cost_usd == 0.015
 
     def test_running_agent_excluded_from_cumulative(self) -> None:
         tracker = _make_tracker()
         tracker.update(_make_state("test_a", status=AgentStatus.RUNNING))
         usage = tracker.cumulative_usage
-        assert usage.input_tokens == 0
-        assert usage.output_tokens == 0
+        assert usage.total_tokens == 0
         assert usage.total_cost_usd == 0.0
 
     def test_failed_agent_with_result_included(self) -> None:
         tracker = _make_tracker()
         test = _make_test("test_a")
         result = _make_result(
-            test, status=AgentStatus.FAILED, usage=_make_usage(50, 20, 0.002)
+            test, status=AgentStatus.FAILED, usage=_make_usage(70, 0.002)
         )
         tracker.update(_make_state("test_a", status=AgentStatus.FAILED, result=result))
         usage = tracker.cumulative_usage
-        assert usage.input_tokens == 50
-        assert usage.output_tokens == 20
+        assert usage.total_tokens == 70
         assert usage.total_cost_usd == 0.002
 
 
@@ -228,14 +221,14 @@ class TestTuiTrackerNonTty:
         tracker = _make_tracker(total=2)
         tracker.start()
         test = _make_test("test_a")
-        result = _make_result(test, usage=_make_usage(100, 50, 0.005))
+        result = _make_result(test, usage=_make_usage(150, 0.005))
         tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
         # Clear the DONE print
         capsys.readouterr()
         tracker.stop()
         captured = capsys.readouterr()
         assert "1/2" in captured.out
-        assert "100" in captured.out  # input tokens
+        assert "150" in captured.out  # total tokens
 
 
 class TestTuiTrackerLifecycle:
@@ -286,7 +279,7 @@ class TestBuildDisplay:
         tracker = _make_tracker(total=3)
         tracker.update(_make_state("test_a", status=AgentStatus.RUNNING))
         test = _make_test("test_b")
-        result = _make_result(test, usage=_make_usage(100, 50, 0.005))
+        result = _make_result(test, usage=_make_usage(150, 0.005))
         tracker.update(_make_state("test_b", status=AgentStatus.DONE, result=result))
         display = tracker._build_display()
         # Smoke test: just verify it returns something renderable

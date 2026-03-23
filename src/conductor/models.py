@@ -31,8 +31,7 @@ class TestCase:
 class TokenUsage:
     """Token usage and cost for an agent run."""
 
-    input_tokens: int
-    output_tokens: int
+    total_tokens: int
     total_cost_usd: float
 
 

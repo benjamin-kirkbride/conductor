@@ -1,4 +1,4 @@
-"""Agent execution: evaluate a single test case via Claude Agent SDK."""
+"""Evaluate a single test case for tautology via the Claude Agent SDK."""
 
 from __future__ import annotations
 
@@ -6,14 +6,12 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
-from claude_agent_sdk import ClaudeAgentOptions, ResultMessage
+from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, TaskNotificationMessage
 
 from conductor.models import AgentResult, AgentStatus, TokenUsage
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from claude_agent_sdk import Message
 
     from conductor.models import TestCase
 
@@ -57,15 +55,13 @@ async def evaluate_test(test: TestCase, prompt: str, repo_dir: Path) -> AgentRes
     )
 
     result_message: ResultMessage | None = None
-    total_input = 0
-    total_output = 0
+    last_task_notification: TaskNotificationMessage | None = None
 
     async for message in claude_agent_sdk.query(prompt=prompt, options=options):
-        total_input, total_output = _accumulate_usage(
-            message, total_input, total_output
-        )
         if isinstance(message, ResultMessage):
             result_message = message
+        elif isinstance(message, TaskNotificationMessage):
+            last_task_notification = message
 
     if result_message is None:
         msg = f"No ResultMessage received for test {test.name}"
@@ -77,11 +73,7 @@ async def evaluate_test(test: TestCase, prompt: str, repo_dir: Path) -> AgentRes
         raise AgentError(msg)
 
     parsed = _parse_output(result_message, test)
-    usage = TokenUsage(
-        input_tokens=total_input,
-        output_tokens=total_output,
-        total_cost_usd=result_message.total_cost_usd or 0.0,
-    )
+    usage = _extract_usage(result_message, last_task_notification)
 
     return AgentResult(
         test=test,
@@ -106,12 +98,23 @@ def _parse_output(result_message: ResultMessage, test: TestCase) -> dict[str, An
     raise AgentError(msg)
 
 
-def _accumulate_usage(
-    message: Message, total_input: int, total_output: int
-) -> tuple[int, int]:
-    """Accumulate token usage from any message that carries a usage dict."""
-    usage = getattr(message, "usage", None)
-    if isinstance(usage, dict):
-        total_input += usage.get("input_tokens", 0)
-        total_output += usage.get("output_tokens", 0)
-    return total_input, total_output
+def _extract_usage(
+    result_message: ResultMessage,
+    task_notification: TaskNotificationMessage | None,
+) -> TokenUsage:
+    """Extract token usage from SDK messages.
+
+    Uses cumulative total_tokens from TaskNotificationMessage when available,
+    falling back to the ResultMessage's per-call usage dict.
+    """
+    total_tokens = 0
+    if task_notification is not None and task_notification.usage is not None:
+        total_tokens = task_notification.usage.get("total_tokens", 0)
+    else:
+        usage = result_message.usage or {}
+        total_tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+
+    return TokenUsage(
+        total_tokens=total_tokens,
+        total_cost_usd=result_message.total_cost_usd or 0.0,
+    )
