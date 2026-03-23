@@ -236,6 +236,23 @@ class TestOrchestrateOnToolUseCallback:
         assert "on_tool_use" in captured_kwargs[0]
         assert callable(captured_kwargs[0]["on_tool_use"])
 
+    async def test_on_tool_use_works_without_tui(self):
+        test = _make_test()
+
+        async def mock_evaluate(t, prompt, repo_dir, **kwargs):
+            on_tool_use = kwargs.get("on_tool_use")
+            if on_tool_use is not None:
+                on_tool_use("Read")
+            return _make_result(t)
+
+        with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
+            results = await orchestrate(
+                [test], Path("/repo"), _make_config(), _TEMPLATE, _TREE
+            )
+
+        assert len(results) == 1
+        assert results[0].status == AgentStatus.DONE
+
     async def test_tui_receives_last_tool_via_callback(self):
         test = _make_test()
         tui = MockTui()
