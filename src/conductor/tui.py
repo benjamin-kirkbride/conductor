@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from typing import TYPE_CHECKING
 
+from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
@@ -27,10 +29,15 @@ class TuiTracker:
         self._states: dict[str, AgentState] = {}
         self._is_tty: bool = sys.stdout.isatty()
         self._live: Live | None = None
+        self._previous_log_level: int | None = None
 
     def start(self) -> None:
         """Start the live display (no-op if not a TTY)."""
         if self._is_tty:
+            root_logger = logging.getLogger()
+            self._previous_log_level = root_logger.level
+            root_logger.setLevel(logging.CRITICAL)
+            Console().clear()
             self._live = Live(self._build_display(), refresh_per_second=4)
             self._live.start()
 
@@ -39,6 +46,9 @@ class TuiTracker:
         if self._live is not None:
             self._live.stop()
             self._live = None
+            if self._previous_log_level is not None:
+                logging.getLogger().setLevel(self._previous_log_level)
+                self._previous_log_level = None
         elif not self._is_tty:
             usage = self.cumulative_usage
             print(
