@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 from rich.live import Live
 from rich.table import Table
-from rich.text import Text
 
 from conductor.models import AgentStatus, TokenUsage
 
@@ -15,13 +14,6 @@ if TYPE_CHECKING:
     from rich.console import RenderableType
 
     from conductor.models import AgentState
-
-_STATUS_STYLE: dict[AgentStatus, str] = {
-    AgentStatus.QUEUED: "dim",
-    AgentStatus.RUNNING: "yellow",
-    AgentStatus.DONE: "green",
-    AgentStatus.FAILED: "red",
-}
 
 _COMPLETED_STATUSES = frozenset({AgentStatus.DONE, AgentStatus.FAILED})
 
@@ -51,6 +43,8 @@ class TuiTracker:
             usage = self.cumulative_usage
             print(
                 f"Completed {self.completed_count}/{self._total} | "
+                f"Tautologies: {self.tautology_count} | "
+                f"Not tautologies: {self.non_tautology_count} | "
                 f"Tokens: {usage.input_tokens} in / {usage.output_tokens} out | "
                 f"Cost: ${usage.total_cost_usd:.4f}"
             )
@@ -62,9 +56,14 @@ class TuiTracker:
         if self._live is not None:
             self._live.update(self._build_display())
         elif not self._is_tty and state.status in _COMPLETED_STATUSES:
+            result_label = ""
+            if state.result is not None:
+                result_label = (
+                    " (tautology)" if state.result.is_tautology else " (not tautological)"
+                )
             print(
                 f"[{self.completed_count}/{self._total}] "
-                f"{state.test.name} {state.status.value.upper()}"
+                f"{state.test.name} {state.status.value.upper()}{result_label}"
             )
 
     @property
@@ -89,31 +88,46 @@ class TuiTracker:
         """Count of agents in DONE or FAILED status."""
         return sum(1 for s in self._states.values() if s.status in _COMPLETED_STATUSES)
 
+    @property
+    def tautology_count(self) -> int:
+        """Count of completed agents whose result is a tautology."""
+        return sum(
+            1
+            for s in self._states.values()
+            if s.result is not None and s.result.is_tautology
+        )
+
+    @property
+    def non_tautology_count(self) -> int:
+        """Count of completed agents whose result is not a tautology."""
+        return sum(
+            1
+            for s in self._states.values()
+            if s.result is not None
+            and s.result.status == AgentStatus.DONE
+            and not s.result.is_tautology
+        )
+
     def _build_display(self) -> RenderableType:
         """Build the Rich renderable for the live display."""
         table = Table(title="Conductor Agent Monitor")
         table.add_column("Test", style="cyan", no_wrap=True)
-        table.add_column("Status", justify="center")
-        table.add_column("Tokens", justify="right")
+        table.add_column("Tool", style="yellow", justify="right")
 
         for name, state in self._states.items():
-            style = _STATUS_STYLE.get(state.status, "white")
-            status_text = Text(state.status.value.upper(), style=style)
-            tokens = ""
-            if state.result is not None:
-                u = state.result.usage
-                tokens = f"{u.input_tokens + u.output_tokens:,}"
-            table.add_row(name, status_text, tokens)
+            if state.status == AgentStatus.RUNNING:
+                tool_text = state.last_tool or "..."
+                table.add_row(name, tool_text)
 
         usage = self.cumulative_usage
         table.add_section()
         table.add_row(
-            f"Progress: {self.completed_count}/{self._total}",
-            "",
+            f"Progress: {self.completed_count}/{self._total}    "
+            f"Tautologies: {self.tautology_count}    "
+            f"Not tautologies: {self.non_tautology_count}",
             f"${usage.total_cost_usd:.4f}",
         )
         table.add_row(
-            "",
             "",
             f"{usage.input_tokens:,} in / {usage.output_tokens:,} out",
         )
