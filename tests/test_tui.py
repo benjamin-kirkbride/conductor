@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -437,3 +438,64 @@ class TestNonTtyTautologyOutput:
         captured = capsys.readouterr()
         assert "Tautologies: 1" in captured.out
         assert "Not tautologies: 1" in captured.out
+
+
+class TestTuiLogSuppression:
+    def test_start_tty_suppresses_logging(self) -> None:
+        with patch("conductor.tui.sys.stdout") as mock_stdout:
+            mock_stdout.isatty.return_value = True
+            tracker = TuiTracker(total=5)
+        root_logger = logging.getLogger()
+        original_level = root_logger.level
+        with patch("conductor.tui.Live") as mock_live_cls:
+            mock_live_cls.return_value = MagicMock()
+            tracker.start()
+        try:
+            assert root_logger.level == logging.CRITICAL
+        finally:
+            tracker.stop()
+            root_logger.setLevel(original_level)
+
+    def test_stop_restores_logging_level(self) -> None:
+        with patch("conductor.tui.sys.stdout") as mock_stdout:
+            mock_stdout.isatty.return_value = True
+            tracker = TuiTracker(total=5)
+        root_logger = logging.getLogger()
+        original_level = root_logger.level
+        with patch("conductor.tui.Live") as mock_live_cls:
+            mock_live_cls.return_value = MagicMock()
+            tracker.start()
+        tracker.stop()
+        assert root_logger.level == original_level
+
+    def test_start_non_tty_does_not_suppress_logging(self) -> None:
+        tracker = _make_tracker()
+        root_logger = logging.getLogger()
+        original_level = root_logger.level
+        tracker.start()
+        assert root_logger.level == original_level
+        tracker.stop()
+
+
+class TestTuiTerminalClear:
+    def test_start_tty_clears_terminal(self) -> None:
+        with patch("conductor.tui.sys.stdout") as mock_stdout:
+            mock_stdout.isatty.return_value = True
+            tracker = TuiTracker(total=5)
+        with (
+            patch("conductor.tui.Live") as mock_live_cls,
+            patch("conductor.tui.Console") as mock_console_cls,
+        ):
+            mock_live_cls.return_value = MagicMock()
+            mock_console = MagicMock()
+            mock_console_cls.return_value = mock_console
+            tracker.start()
+        mock_console.clear.assert_called_once()
+        tracker.stop()
+
+    def test_start_non_tty_does_not_clear_terminal(self) -> None:
+        tracker = _make_tracker()
+        with patch("conductor.tui.Console") as mock_console_cls:
+            tracker.start()
+            mock_console_cls.assert_not_called()
+        tracker.stop()
