@@ -127,6 +127,20 @@ class TestNormalRun:
             _RESULTS, Path("out.csv")
         )
 
+    def test_with_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("sys.argv", [*_BASE_ARGV, "--limit", "1"])
+        patches = _base_patches()
+        mock_tui_instance = MagicMock()
+        patches["conductor.__main__.TuiTracker"] = MagicMock(
+            return_value=mock_tui_instance
+        )
+        with _apply_patches(patches), pytest.raises(SystemExit, match="0"):
+            main()
+
+        call_args = patches["conductor.__main__.orchestrate"].call_args
+        assert call_args[0][0] == _TESTS[:1]
+        patches["conductor.__main__.TuiTracker"].assert_called_once_with(total=1)
+
     def test_tui_start_and_stop_called(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("sys.argv", _BASE_ARGV)
         patches = _base_patches()

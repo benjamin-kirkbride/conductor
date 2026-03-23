@@ -27,11 +27,9 @@ def _run_dry_run(
     tests: list[TestCase],
     template: jinja2.Template,
     directory_tree: str,
-    limit: int | None,
 ) -> None:
     """Render and print prompts without running agents."""
-    selected = tests[:limit] if limit is not None else tests
-    for test in selected:
+    for test in tests:
         prompt = render_prompt(template, test, directory_tree)
         print(f"--- {test.name} ---")
         print(prompt)
@@ -43,11 +41,13 @@ def _run(config: ConductorConfig) -> None:
     tmp_dir = clone_repo(config.repo_url)
     try:
         tests = discover_tests(tmp_dir)
+        if config.limit is not None:
+            tests = tests[: config.limit]
         template = load_template(config.template_path)
         directory_tree = build_directory_tree(tmp_dir)
 
         if config.dry_run:
-            _run_dry_run(tests, template, directory_tree, config.limit)
+            _run_dry_run(tests, template, directory_tree)
         else:
             tui = TuiTracker(total=len(tests))
             tui.start()
