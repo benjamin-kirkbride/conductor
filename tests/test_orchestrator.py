@@ -228,9 +228,7 @@ class TestOrchestrateOnToolUseCallback:
             return _make_result(t)
 
         with patch("conductor.orchestrator.evaluate_test", side_effect=mock_evaluate):
-            await orchestrate(
-                [test], Path("/repo"), _make_config(), _TEMPLATE, _TREE
-            )
+            await orchestrate([test], Path("/repo"), _make_config(), _TEMPLATE, _TREE)
 
         assert len(captured_kwargs) == 1
         assert "on_tool_use" in captured_kwargs[0]

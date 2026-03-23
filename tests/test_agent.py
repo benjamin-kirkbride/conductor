@@ -340,9 +340,7 @@ class TestOnToolUseCallback:
             "conductor.agent.claude_agent_sdk.query",
             return_value=_fake_query(assistant_msg, result_msg),
         ):
-            await evaluate_test(
-                test, "prompt", Path("/repo"), on_tool_use=calls.append
-            )
+            await evaluate_test(test, "prompt", Path("/repo"), on_tool_use=calls.append)
 
         assert calls == ["Read"]
 
@@ -367,9 +365,7 @@ class TestOnToolUseCallback:
             "conductor.agent.claude_agent_sdk.query",
             return_value=_fake_query(msg1, msg2, result_msg),
         ):
-            await evaluate_test(
-                test, "prompt", Path("/repo"), on_tool_use=calls.append
-            )
+            await evaluate_test(test, "prompt", Path("/repo"), on_tool_use=calls.append)
 
         assert calls == ["Read", "Grep"]
 
@@ -410,8 +406,6 @@ class TestOnToolUseCallback:
             "conductor.agent.claude_agent_sdk.query",
             return_value=_fake_query(assistant_msg, result_msg),
         ):
-            await evaluate_test(
-                test, "prompt", Path("/repo"), on_tool_use=calls.append
-            )
+            await evaluate_test(test, "prompt", Path("/repo"), on_tool_use=calls.append)
 
         assert calls == []

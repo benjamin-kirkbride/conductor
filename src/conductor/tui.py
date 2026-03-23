@@ -59,7 +59,9 @@ class TuiTracker:
             result_label = ""
             if state.result is not None:
                 result_label = (
-                    " (tautology)" if state.result.is_tautology else " (not tautological)"
+                    " (tautology)"
+                    if state.result.is_tautology
+                    else " (not tautological)"
                 )
             print(
                 f"[{self.completed_count}/{self._total}] "

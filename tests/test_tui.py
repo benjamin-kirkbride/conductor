@@ -319,9 +319,7 @@ class TestBuildDisplayActiveOnly:
         tracker.update(_make_state("test_running", status=AgentStatus.RUNNING))
         test = _make_test("test_done")
         result = _make_result(test)
-        tracker.update(
-            _make_state("test_done", status=AgentStatus.DONE, result=result)
-        )
+        tracker.update(_make_state("test_done", status=AgentStatus.DONE, result=result))
         output = _render(tracker)
         assert "test_running" in output
         assert "test_queued" not in output
@@ -408,9 +406,7 @@ class TestNonTtyTautologyOutput:
         tracker.start()
         test = _make_test("test_a")
         result = _make_result(test, is_tautology=True)
-        tracker.update(
-            _make_state("test_a", status=AgentStatus.DONE, result=result)
-        )
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
         captured = capsys.readouterr()
         assert "tautology" in captured.out
 
@@ -421,9 +417,7 @@ class TestNonTtyTautologyOutput:
         tracker.start()
         test = _make_test("test_a")
         result = _make_result(test, is_tautology=False)
-        tracker.update(
-            _make_state("test_a", status=AgentStatus.DONE, result=result)
-        )
+        tracker.update(_make_state("test_a", status=AgentStatus.DONE, result=result))
         captured = capsys.readouterr()
         assert "not tautological" in captured.out
 
