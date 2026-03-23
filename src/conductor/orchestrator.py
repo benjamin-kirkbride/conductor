@@ -63,7 +63,7 @@ async def orchestrate(  # noqa: PLR0913
 
             try:
                 prompt = render_prompt(template, test, directory_tree)
-                result = await evaluate_test(test, prompt, repo_dir)
+                result = await evaluate_test(test, prompt, repo_dir, model=config.model)
             except Exception as exc:  # noqa: BLE001
                 state.status = AgentStatus.FAILED
                 state.end_time = time.monotonic()

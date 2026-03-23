@@ -125,6 +125,7 @@ class TestConductorConfig:
         assert config.parallel == 10
         assert config.dry_run is True
         assert config.limit == 3
+        assert config.model == "sonnet"
 
     def test_defaults(self) -> None:
         config = ConductorConfig(
@@ -135,6 +136,7 @@ class TestConductorConfig:
         assert config.parallel == 5
         assert config.dry_run is False
         assert config.limit is None
+        assert config.model == "sonnet"
 
     def test_frozen(self) -> None:
         config = ConductorConfig(

@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Limit the number of tests to process",
     )
+    parser.add_argument(
+        "--model",
+        default="sonnet",
+        help="Claude model to use (default: sonnet)",
+    )
     return parser
 
 
@@ -64,4 +69,5 @@ def parse_args(argv: list[str] | None = None) -> ConductorConfig:
         parallel=args.parallel,
         dry_run=args.dry_run,
         limit=args.limit,
+        model=args.model,
     )

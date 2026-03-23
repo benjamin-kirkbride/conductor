@@ -183,7 +183,7 @@ class TestEvaluateTestPassesCorrectOptions:
             return _fake_query(result_msg)
 
         with patch("conductor.agent.claude_agent_sdk.query", side_effect=mock_query):
-            await evaluate_test(test, "my prompt", Path("/my/repo"))
+            await evaluate_test(test, "my prompt", Path("/my/repo"), model="opus")
 
         assert captured_kwargs["prompt"] == "my prompt"
 
@@ -194,6 +194,29 @@ class TestEvaluateTestPassesCorrectOptions:
         assert options.permission_mode == "bypassPermissions"
         assert options.output_format is not None
         assert options.output_format["type"] == "json_schema"
+        assert options.model == "opus"
+
+
+class TestEvaluateTestDefaultModel:
+    async def test_defaults_to_sonnet(self):
+        test = _make_test()
+        result_msg = _make_result_message(
+            structured_output={"is_tautology": False, "reason": "ok"},
+            usage={"input_tokens": 0, "output_tokens": 0},
+            total_cost_usd=0.0,
+        )
+
+        captured_kwargs: dict = {}
+
+        def mock_query(**kwargs):
+            captured_kwargs.update(kwargs)
+            return _fake_query(result_msg)
+
+        with patch("conductor.agent.claude_agent_sdk.query", side_effect=mock_query):
+            await evaluate_test(test, "prompt", Path("/repo"))
+
+        options = captured_kwargs["options"]
+        assert options.model == "sonnet"
 
 
 class TestEvaluateTestIgnoresNonResultMessages:
