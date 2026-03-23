@@ -87,6 +87,7 @@ class TestAgentState:
         assert state.result is None
         assert state.start_time is None
         assert state.end_time is None
+        assert state.last_tool is None
 
     def test_mutable(self) -> None:
         tc = TestCase(name="t", file_path="f")
@@ -103,10 +104,12 @@ class TestAgentState:
         state.result = result
         state.start_time = 1.0
         state.end_time = 2.0
+        state.last_tool = "Read"
         assert state.status is AgentStatus.RUNNING
         assert state.result is result
         assert state.start_time == 1.0
         assert state.end_time == 2.0
+        assert state.last_tool == "Read"
 
 
 class TestConductorConfig:
