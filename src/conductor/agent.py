@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
-from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, ToolUseBlock
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    ToolUseBlock,
+)
 
 from conductor.models import AgentResult, AgentStatus, TokenUsage
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from claude_agent_sdk import Message

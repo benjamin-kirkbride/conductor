@@ -50,7 +50,7 @@ def _make_result(
     )
 
 
-def _make_state(
+def _make_state(  # noqa: PLR0913
     name: str = "tests/test_foo.py::test_bar",
     *,
     status: AgentStatus = AgentStatus.QUEUED,
